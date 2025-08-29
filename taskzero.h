@@ -1,15 +1,35 @@
 #ifndef TASKZERO_H
 #define TASKZERO_H
 
+#define EXTRA_CHAR             2  // I use fget so there are \n & \0
 #define TASKNAME_CHAR_LIMIT    50
 #define TASK_LIMIT             100
+#define BUFFER_CHAR_LIMIT      200
+#define START_YEAR             2000
 #define WORKLIST_FILE          "worklist.bin"
 
 #include "./setup.h"
+#include <string.h>
 
+
+
+////////////////////  FLAGS  ////////////////////
+typedef enum {
+  DETAIL_NONE,
+  DETAIL_HELP
+} ExtraDetails;
+
+typedef struct {
+  ExtraDetails extra_details;
+  bool done;
+} Flags;
+
+
+
+////////////////////  TASK  ////////////////////
 typedef enum {
   PENDING,
-  // IN_PROGRESS,
+  IN_PROGRESS,
   DONE
 } TaskStatus;
 
@@ -23,21 +43,45 @@ typedef enum {
 
 // TODO: Create my own data structure
 typedef struct {
-  char taskName[TASKNAME_CHAR_LIMIT];
-  uint32_t number;
-  uint32_t createdDate;
-  uint32_t deadline;
+  char name[ TASKNAME_CHAR_LIMIT + EXTRA_CHAR ];
+  uint32_t id;
   TaskStatus status;
   Priority priority;
 } TaskInfo;
 
 typedef struct {
-  TaskInfo task;
+  TaskInfo taskInfo;
 } SimpleTask;
 
 typedef struct {
   SimpleTask tasks[TASK_LIMIT];
   uint8_t numberOfTask;
 } TaskList;
+
+
+
+////////////////////  COMMAND HANDLE  ////////////////////
+typedef enum {
+  COMMAND_ADD,
+  COMMAND_UPDATE,
+  COMMAND_DELETE,
+
+  COMMAND_MARK_IN_PROGRESS,
+  COMMAND_MARK_DONE,
+
+  COMMAND_HELP,
+  COMMAND_QUIT,
+  COMMAND_ERROR
+} TaskZeroCommand;
+
+typedef struct {
+  const char* start;
+  const char* curr;
+} Scanner;
+
+typedef struct {
+  const char* start;
+  uint8_t length;
+} Token;
 
 #endif
