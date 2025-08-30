@@ -38,6 +38,7 @@ int main() {
 ////////////////////  FLAGS  ////////////////////
 static void InitFlags() {
   flags.done = false;
+  flags.hadError = false;
 }
 
 
@@ -47,14 +48,23 @@ static void InitTaskList() {
   taskList.numberOfTask = 0;
 }
 
-static void AddSimpleTask(SimpleTask* newTask) {
+static SimpleTask MakeSimpleTask(Token* task_name, Priority priority) {
+  SimpleTask task;
+  memcpy(task.taskInfo.name, task_name->start, task_name->length);
+  task.taskInfo.name[task_name->length] = '\0';
+  task.taskInfo.id = tasks.numberOfTask;
+  task.taskInfo.status = PENDING;
+  task.taskInfo.priority = priority;
+  return task;
+}
+
+static void AddSimpleTask(Token* task_name, Priority priority) {
   if (taskList.numberOfTask >= TASK_LIMIT) {
     fprintf(stderr, "You have too much tasks. Please stand up and do your fucking jobs.\n");
     exit(1);
   }
 
-  taskList.tasks[tasks.numberOfTask] = *newTask;
-  taskList.numberOfTask++;
+  taskList.tasks[tasks.numberOfTask++] = MakeSimpleTask(task_name, priority);
 }
 
 static void DeleteTask(uint8_t taskIndex) {
@@ -120,7 +130,8 @@ static void LoadFile() {
 
   SimpleTask newTask;
   while (fread(&newTask, sizeof(SimpleTask), 1, file) == 1) {
-    AddSimpleTask(&newTask);
+    taskList.tasks[tasks.numberOfTask] = *newTask;
+    taskList.numberOfTask++;
   }
   fclose(file);
 
@@ -144,30 +155,64 @@ getcommand:;
     fprintf(stderr, "[ERROR] TaskZero can only handle %i chars in one line.\n", BUFFER_CHAR_LIMIT);
     goto getcommand;
   }
+
+  scanner.curr = command_buffer;
+}
+
+#define advanced (*scanner.curr++)
+#define peek     (*scanner.curr)
+
+#define isNumber between('0', scanner.curr[-1], '9')
+#define isAlpha  between('a', scanner.curr[-1], 'z')
+
+static inline Token MakeToken(TokenType type) {
+  return (Token){
+    .start  = scanner.start,
+    .length = scanner.curr - scanner.start,
+    .type   = type
+  };
+}
+
+static void SkipWhiteSpace() {
+  until (null peek || peek == ' ' || peek == '\n') {
+    advanced; 
+  }
+  scanner.start = scanner.start;
 }
 
 static Token ScanToken() {
-  scanner.start = command_buffer;
-  scanner.curr = command_buffer;
+  SkipWhiteSpace();
 
-  while (*scanner.curr) {
-    if (*scanner.curr == ' ' || *scanner.curr == '\n') {
-      if (scanner.curr != scanner.start) {
-        Token token = (Token) {
-          scanner.start,
-          scanner.curr - scanner.start
-        };
+  switch (advanced) {
+    case '\0':
+      return MakeToken(TOKEN_EOF);
 
-        scanner.start = ++scanner.curr;
-        return token;
+    case '"':
+      until (advanced == '"');
+      return MakeToken(TOKEN_STRING);
+
+    default:
+      if (isNumber) {
+        while (isNumber) {advanced;}
+        if (peek == '\0' || peek == '\n' || peek == ' ') {
+          return MakeToken(TOKEN_NUMBER);
+        }
+      } elif (isAlpha) {
+        while (isAlpha) {advanced;}
+        if (peek == '\0' || peek == '\n' || peek == ' ') {
+          return MakeToken(TOKEN_COMMAND);
+        }
+      } else {
+        return MakeToken(TOKEN_ERROR);
       }
-    }
-
-    scanner.curr++;
   }
-
-  return (Token) {scanner.start, 0u};
 }
+
+#undef advanced
+#undef peek
+
+#undef isNumber
+#undef isAlpha 
 
 static bool CompareStr(
   const char* start, const char* rest,
@@ -183,6 +228,14 @@ static bool CompareStr(
 
 static TaskZeroCommand GetCommand() {
   Token cmd = ScanToken();
+  if (cmd.type == TOKEN_EOF) {
+    return COMMAND_HELP;
+  }
+
+  if (cmd.type != TOKEN_COMMAND) {
+    return COMMAND_ERROR;
+  }
+
   switch (*cmd.start) {
     case 'a':
       if (CompareStr(cmd.start, "dd", 2, cmd.length)) { return COMMAND_ADD; }
@@ -225,11 +278,42 @@ static TaskZeroCommand GetCommand() {
   return COMMAND_ERROR;
 }
 
-static bool CommandHandle() {
+static void CommandError(const char* error_message) {
+  fprintf(stderr, "%s\n", error_message);
+  flags.hadError = true;
+}
+
+#define Consume(token, type) \
+\
+  do { \
+    if (token.type != type) { \
+      CommandError("Invalid! Type 'help' for more information."); \
+      return; \
+    } \
+  } while(0)
+
+static void CommandAdd() {
+  Token task_name = ScanToken();
+  Consume(task_name, TOKEN_STRING);
+
+  Token priority = ScanToken();
+  Consume(priority, TOKEN_NUMBER);
+  if (priority.length == 1) {
+    CommandError("Expect priority number 0 to 3!");
+    return;
+  }
+
+  AddSimpleTask(task_name, (*priority.start)-'0');
+}
+
+#undef Consume
+
+static void CommandHandle() {
   TaskZeroCommand cmd = GetCommand();
   switch (cmd) {
     case COMMAND_ADD:
       printf("Adding...\n");
+      CommandAdd();
       break;
 
     case COMMAND_UPDATE:
@@ -260,9 +344,7 @@ static bool CommandHandle() {
 
     case COMMAND_ERROR:
     default:
-      printf("Unknown or error command!\n");
+      CommandError("Unknown or error command!");
       break;
   }
-
-  return true;
 }

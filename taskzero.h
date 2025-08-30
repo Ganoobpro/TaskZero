@@ -22,6 +22,7 @@ typedef enum {
 typedef struct {
   ExtraDetails extra_details;
   bool done;
+  bool hadError;
 } Flags;
 
 
@@ -62,6 +63,14 @@ typedef struct {
 
 ////////////////////  COMMAND HANDLE  ////////////////////
 typedef enum {
+  TOKEN_COMMAND,
+  TOKEN_NUMBER,
+  TOKEN_STRING,
+  TOKEN_ERROR,
+  TOKEN_EOF
+} TokenType;
+
+typedef enum {
   COMMAND_ADD,
   COMMAND_UPDATE,
   COMMAND_DELETE,
@@ -81,6 +90,7 @@ typedef struct {
 
 typedef struct {
   const char* start;
+  TokenType type;
   uint8_t length;
 } Token;
 
