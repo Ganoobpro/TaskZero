@@ -45,7 +45,6 @@ typedef enum {
 // TODO: Create my own data structure
 typedef struct {
   char name[ TASKNAME_CHAR_LIMIT + EXTRA_CHAR ];
-  uint32_t id;
   TaskStatus status;
   Priority priority;
 } TaskInfo;

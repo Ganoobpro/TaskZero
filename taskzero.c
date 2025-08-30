@@ -4,7 +4,7 @@
 static void InitFlags();
 
 static void InitTaskList();
-static void AddSimpleTask(SimpleTask* newTask);
+static void AddSimpleTask(Token* task_name, Priority priority);
 static void DeleteTask(uint8_t taskIndex);
 static void PrintPriorityTasks(Priority priority);
 
@@ -41,6 +41,11 @@ static void InitFlags() {
   flags.hadError = false;
 }
 
+static void CommandError(const char* error_message) {
+  fprintf(stderr, "[ERROR] %s\n", error_message);
+  flags.hadError = true;
+}
+
 
 
 ////////////////////  TASK LIST  ////////////////////
@@ -48,12 +53,13 @@ static void InitTaskList() {
   taskList.numberOfTask = 0;
 }
 
-static SimpleTask MakeSimpleTask(Token* task_name, Priority priority) {
+static SimpleTask
+MakeSimpleTask(Token* task_name, Priority priority, TaskStatus status)
+{
   SimpleTask task;
   memcpy(task.taskInfo.name, task_name->start, task_name->length);
   task.taskInfo.name[task_name->length] = '\0';
-  task.taskInfo.id = tasks.numberOfTask;
-  task.taskInfo.status = PENDING;
+  task.taskInfo.status = status;
   task.taskInfo.priority = priority;
   return task;
 }
@@ -64,17 +70,29 @@ static void AddSimpleTask(Token* task_name, Priority priority) {
     exit(1);
   }
 
-  taskList.tasks[tasks.numberOfTask++] = MakeSimpleTask(task_name, priority);
+  taskList.tasks[taskList.numberOfTask++] = MakeSimpleTask(task_name, priority, PENDING);
 }
 
 static void DeleteTask(uint8_t taskIndex) {
-  for (taskIndex; taskIndex < taskList.numberOfTask; taskIndex++) {
-    taskList.tasks[taskIndex] = taskList.tasks[taskIndex+1];
+  for (uint8_t i=taskIndex; i < taskList.numberOfTask; i++) {
+    taskList.tasks[i] = taskList.tasks[i+1];
   }
   taskList.numberOfTask--;
 }
 
-char* statusString[] {
+static void ChangeTask(uint32_t taskIndex, Token* task_name, Priority priority) {
+  if (taskIndex >= taskList.numberOfTask) {
+    CommandError("Input id is out of list!");
+    return;
+  }
+
+  taskList.tasks[taskIndex] = MakeSimpleTask(
+    task_name, priority,
+    taskList.tasks[taskIndex].taskInfo.status
+  );
+}
+
+char* statusString[] = {
   [PENDING]     = "[Pending  X] ",
   [IN_PROGRESS] = "[Progress -] ",
   [DONE]        = "[Done     O] "
@@ -84,15 +102,14 @@ char* priorityString[] = {
   [YOUR_STUPID_STUFF] = "NONURGENT & NOT IMPORTANT",
   [CAN_DELAY]         = "NONURGENT & IMPORTANT",
   [SHOULD_DO]         = "URGENT    & NOT IMPORTANT",
-  [MUST_DO_NO]        = "URGENT    & IMPORTANT"
+  [MUST_DO_NOW]       = "URGENT    & IMPORTANT"
 };
 
-static void PrintTask(SimpleTask* task) {
+static void PrintTask(uint32_t id, SimpleTask* task) {
   printf(
     "%s %-3u | %50s\n",
-    statusString[task->status],
-    task->id,
-    task->name
+    statusString[task->taskInfo.status],
+    id, task->taskInfo.name
   );
 }
 
@@ -101,7 +118,7 @@ static void PrintPriorityTasks(Priority priority) {
 
   for (uint8_t i=0; i < taskList.numberOfTask; i++) {
     if (taskList.tasks[i].taskInfo.priority == priority) {
-      PrintTask(&taskList.tasks[i].taskInfo);
+      PrintTask(i, taskList.tasks+i);
     }
   }
   printf("--------------------\n");
@@ -120,7 +137,7 @@ static void LoadFile() {
     FILE* file = fopen(WORKLIST_FILE, "wb");
 
     if (null file) {
-      fprintf(stderr, "ERROR: Unable to create new work file.\n");
+      fprintf(stderr, "[ERROR] Unable to create new work file.\n");
       exit(1);
     }
 
@@ -130,7 +147,7 @@ static void LoadFile() {
 
   SimpleTask newTask;
   while (fread(&newTask, sizeof(SimpleTask), 1, file) == 1) {
-    taskList.tasks[tasks.numberOfTask] = *newTask;
+    taskList.tasks[taskList.numberOfTask] = newTask;
     taskList.numberOfTask++;
   }
   fclose(file);
@@ -174,7 +191,7 @@ static inline Token MakeToken(TokenType type) {
 }
 
 static void SkipWhiteSpace() {
-  until (null peek || peek == ' ' || peek == '\n') {
+  until (peek == '\0' || peek == ' ' || peek == '\n') {
     advanced; 
   }
   scanner.start = scanner.start;
@@ -219,11 +236,11 @@ static bool CompareStr(
   const uint8_t startIndex, const uint8_t startLength
 ) {
   // Safe (maybe?)
-  if (strlen(rest) != length - startIndex) {
+  if (strlen(rest) != startLength - startIndex) {
     return false;
   }
 
-  return memcmp(start+startIndex, rest, length) == 0;
+  return memcmp(start+startIndex, rest, startLength) == 0;
 }
 
 static TaskZeroCommand GetCommand() {
@@ -278,35 +295,68 @@ static TaskZeroCommand GetCommand() {
   return COMMAND_ERROR;
 }
 
-static void CommandError(const char* error_message) {
-  fprintf(stderr, "%s\n", error_message);
-  flags.hadError = true;
-}
-
-#define Consume(token, type) \
+#define Consume(token, check_type) \
 \
   do { \
-    if (token.type != type) { \
+    if (token.type != check_type) { \
       CommandError("Invalid! Type 'help' for more information."); \
       return; \
     } \
   } while(0)
 
+#define ScanId(id) \
+\
+  do { \
+    Token _id = ScanToken(); \
+    Consume(_id, TOKEN_NUMBER); \
+    id = (uint32_t) strtol(_id.start, NULL, 10); \
+  } while(0)
+
+#define ScanTaskName(task_name) \
+\
+  do { \
+    task_name = ScanToken(); \
+    Consume(task_name, TOKEN_STRING); \
+  } while(0)
+
+#define ScanPriority(priority) \
+\
+  do { \
+    Token _priority = ScanToken(); \
+    Consume(_priority, TOKEN_NUMBER); \
+    if (_priority.length != 1 && between('0', *_priority.start, '9')) { \
+      CommandError("Expect priority number 0 to 3!"); \
+      return; \
+    } \
+    priority = (*_priority.start)-'0'; \
+  } while(0)
+
 static void CommandAdd() {
-  Token task_name = ScanToken();
-  Consume(task_name, TOKEN_STRING);
+  Token task_name;
+  uint8_t priority;
 
-  Token priority = ScanToken();
-  Consume(priority, TOKEN_NUMBER);
-  if (priority.length == 1) {
-    CommandError("Expect priority number 0 to 3!");
-    return;
-  }
+  ScanTaskName(task_name);
+  ScanPriority(priority);
 
-  AddSimpleTask(task_name, (*priority.start)-'0');
+  AddSimpleTask(&task_name, priority);
+}
+
+static void CommandUpdate() {
+  Token task_name;
+  uint32_t id;
+  uint8_t priority;
+
+  ScanId(id);
+  ScanTaskName(task_name);
+  ScanPriority(priority);
+
+  ChangeTask(id, &task_name, priority);
 }
 
 #undef Consume
+#undef ScanId
+#undef ScanTaskName
+#undef ScanPriority
 
 static void CommandHandle() {
   TaskZeroCommand cmd = GetCommand();
@@ -318,6 +368,7 @@ static void CommandHandle() {
 
     case COMMAND_UPDATE:
       printf("Updating...\n");
+      CommandUpdate();
       break;
 
     case COMMAND_DELETE:

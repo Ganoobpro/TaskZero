@@ -44,7 +44,6 @@ typedef long double ld;
 #define never        while(0)
 #define comment      while(0)
 #define repeat       do
-#define done         break
 #define finish       break
 #define pass         continue
 
