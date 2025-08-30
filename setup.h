@@ -1,12 +1,6 @@
 #ifndef SETUP_H
 #define SETUP_H
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <stdbool.h>
-#include <string.h>
-
 // Type aliases
 typedef long long ll;
 typedef unsigned long long ull;
