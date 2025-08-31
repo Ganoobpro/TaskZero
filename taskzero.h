@@ -13,6 +13,20 @@ typedef byte char;
 
 
 
+////////////////////  TASKZERO  ////////////////////
+typedef struct {
+  bool hadError;
+  bool done;
+} CommandFlags;
+
+typedef struct {
+  std::string command;
+  std::vector<Task> task_list;
+  CommandFlags flags;
+} TaskZero;
+
+
+
 ////////////////////  TASK  ////////////////////
 typedef enum {
   TASK_PENDING,
@@ -36,10 +50,12 @@ typedef struct {
 
 
 
-////////////////////  TASKZERO  ////////////////////
+////////////////////  COMMAND HANDLE  ////////////////////
 typedef struct {
-  std::vector<Task> task_list;
-} TaskZero;
-
+  bool no_id;
+  bool no_name;
+  bool no_deadline;
+  bool no_consequence;
+} InputFlags;
 
 #endif
