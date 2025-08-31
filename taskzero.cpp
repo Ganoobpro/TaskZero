@@ -46,12 +46,63 @@ static void LoadFile() {
 
 
 ////////////////////  COMMANDS  ////////////////////
-static void GetCommand(bool* input_flags) {
+static void GetCommand() {
   std::cout << "> ";
   std::cin >> taskzero.command;
 }
 
+static void RemoveLeftoverInput() {
+  if (cin.peek() != '\n' && cin.peek() != EOF) {
+    PrintError("Too much input!");
+    until (cin.peek() == '\n' || cin.peek() == EOF);
+  }
+}
+
+static void GetFlags(InputFlags* input_flags) {
+  char* c = &input_flags[0];
+
+  if (*c == '-') {
+    c++;
+
+    do {
+      switch (*c++) {
+        case 'i':
+          if (input_flags->no_id)
+            { PrintError("Error flag!"); return; }
+          input_flags->no_id = false;
+          break;
+
+        case 'n':
+          if (input_flags->no_name)
+            { PrintError("Error flag!"); return; }
+          input_flags->no_name = false;
+          break;
+
+        case 'd':
+          if (input_flags->no_deadline)
+            { PrintError("Error flag!"); return; }
+          input_flags->no_deadline = false;
+          break;
+
+        case 'c':
+          if (input_flags->no_consequence)
+            { PrintError("Error flag!"); return; }
+          input_flags->no_consequence = false;
+          break;
+
+        default:
+          PrintError("Unknown flag!");
+          break;
+      }
+    } until (*c == '\n' || *c == '\0');
+  }
+}
+
 static void CommandHelp() {
+  RemoveLeftoverInput();
+  if (taskzero.hadError)
+    { return; }
+
   std::cout << "TaskZero - A Simple To-Do List Manager\n";
   std::cout << "Usage:\n";
   std::cout << "  <command> [options] [task info]\n\n";
@@ -77,6 +128,27 @@ static void CommandHelp() {
   std::cout << "  mark-done 5\n\n";
 }
 
+static void CommandAdd() {
+  InputFlags input_flags = (InputFlags) {
+    .no_id = false,
+    .no_name = false,
+    .no_deadline = true,
+    .no_consequence = true
+  };
+  GetFlags(&input_flags);
+  if (taskzero.hadError)
+    { return; }
+
+  Task new_task;
+  cin >> new_task.task_name;
+
+  // TODO: Add deadline, consequence later
+
+  RemoveLeftoverInput();
+  if (taskzero.hadError)
+    { return; }
+}
+
 static void CommandHandle() {
   if (taskzero.command == "") {}
   else if (taskzero.command == "help") { CommandHelp(); }
@@ -98,4 +170,6 @@ static void CommandHandle() {
   else {
     std::cout << "Unknown command: " << command << "\n";
   }
+
+  RemoveLeftoverInput();
 }
