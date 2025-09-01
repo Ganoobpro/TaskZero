@@ -3,15 +3,19 @@
 
 TaskZero taskzero;
 
+static void PrintError();
 static void PrintTasks();
-static void CommandHandle();
 static void Reset();
+
+static void CommandHandle();
 
 int main() {
   while (!taskzero.flags.done) {
-    CommandHandle();
-    PrintTasks();
     Reset();
+    PrintTasks();
+    if (taskzero.flags.hadError)
+      { PrintError(); }
+    CommandHandle();
   }
 
   return 0;
@@ -19,11 +23,15 @@ int main() {
 
 
 
-////////////////////  MAIN LOOP  ////////////////////
-static void PrintError(const std::string& error_message) {
-  std::cerr << "[ERROR] " << error_message
-       << " Type 'help' for more information.\n";
-  taskzero.flags.hadError = true;
+////////////////////  PRINT  ////////////////////
+static inline void AnnounceError(const std::string& error_message) {
+  taskzero.error_message = error_message;
+}
+
+static void PrintError() {
+  std::cerr << "[ERROR] " << taskzero.error_message
+      << " Type 'help' for more information.\n";
+  taskzero.flags.hadError = false;
 }
 
 std::string status_string[] = {
@@ -50,7 +58,27 @@ static void PrintTasks() {
 }
 
 static void Reset() {
-  taskzero.flags.hadError = false;
+  // Clear screen
+  std::cout << "\033[2J\033[1;1H"; 
+}
+
+
+
+////////////////////  TASK  ////////////////////
+static inline void AddTask(const Task& new_task) {
+  taskzero.task_list.push_back(new_task);
+}
+
+static inline void ChangeTask(const uint32_t &task_id, const Task& changed_task) {
+  taskzero.task_list[task_id] = changed_task;
+}
+
+static inline void DeleteTask(const uint32_t &task_id) {
+  taskzero.task_list.erase(taskzero.task_list.begin() + task_id);
+}
+
+static inline void MarkTask(const uint32_t &task_id, const TaskStatus &status) {
+  taskzero.task_list[task_id].status = status;
 }
 
 
@@ -84,7 +112,7 @@ static void GetCommand() {
 static void RemoveLeftoverInput(bool print_error) {
   if (std::cin.peek() != '\n' && std::cin.peek() != EOF) {
     if (print_error)
-      { PrintError("Too much input!"); }
+      { AnnounceError("Too much input!"); }
     taskzero.flags.hadError = true;
     std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
   }
@@ -104,49 +132,49 @@ GetFlags(const InputFlags& input_flags, InputArguments* input_arguments) {
     switch (*c++) {
       case 'i':
         if (input_flags.no_id)
-          { PrintError("Error flag!"); return; }
+          { AnnounceError("Error flag!"); return; }
         input_arguments->get_id = false;
         break;
 
       case 'n':
         if (input_flags.no_name)
-          { PrintError("Error flag!"); return; }
+          { AnnounceError("Error flag!"); return; }
         input_arguments->get_name = false;
         break;
 
       case 'd':
         if (input_flags.no_deadline)
-          { PrintError("Error flag!"); return; }
+          { AnnounceError("Error flag!"); return; }
         input_arguments->get_deadline = false;
         break;
 
       case 'c':
         if (input_flags.no_consequence)
-          { PrintError("Error flag!"); return; }
+          { AnnounceError("Error flag!"); return; }
         input_arguments->get_consequence = false;
         break;
 
       default:
-        PrintError("Unknown flag!");
+        AnnounceError("Unknown flag!");
         break;
     }
   } while (!(*c == '\n' || *c == '\0'));
 }
 
-static unsigned int GetNumber() {
+static uint32_t GetNumber() {
   std::string str_num;
   std::cin >> str_num;
 
   for (char c : str_num) {
     if (c < '0' || c > '9') {
-      PrintError("Invalid number!");
+      AnnounceError("Invalid number!");
       return 0;
     }
   }
 
   int res = std::stoi(str_num);
   if (res < 0) {
-    PrintError("Expect positive number!");
+    AnnounceError("Expect positive number!");
     return 0;
   }
   return res;
@@ -224,28 +252,67 @@ static void CommandAdd() {
 
   // Leftover check & Execute main job
   LEFTOVER_CHECK;
-  taskzero.task_list.push_back(new_task);
+  AddTask(new_task);
 }
 
 static void CommandUpdate() {
   // Get flags
   InputArguments input_arguments = (InputArguments){true, true, true, true};
   GetFlags(
-    { .no_id = false, .no_name = true, .no_deadline = true, .no_consequence = true },
+    { true, true, true, true },
     &input_arguments
   );
   ERROR_CHECK(false);
 
   // Get agruments
-  unsigned int task_id = GetNumber();
+  uint32_t task_id = GetNumber();
   ERROR_CHECK(task_id >= taskzero.task_list.size());
-  Task new_task;
-  GetArguments(input_arguments, &new_task);
+  Task changed_task;
+  GetArguments(input_arguments, &changed_task);
 
   // Leftover check & Execute main job
   LEFTOVER_CHECK;
-  taskzero.task_list[task_id] = new_task;
+  ChangeTask(task_id, changed_task);
 }
+
+static void CommandDelete() {
+  // Get flags
+  InputArguments input_arguments{};
+  input_arguments.get_id = true;
+  GetFlags(
+    { false, false, false, false },
+    &input_arguments
+  );
+  ERROR_CHECK(false);
+
+  // Get agruments
+  uint32_t task_id = GetNumber();
+  ERROR_CHECK(task_id >= taskzero.task_list.size());
+
+  // Leftover check & Execute main job
+  LEFTOVER_CHECK;
+  DeleteTask(task_id);
+}
+
+static void CommandMark(const TaskStatus status) {
+  // Get flags
+  InputArguments input_arguments{};
+  input_arguments.get_id = true;
+  GetFlags(
+    { false, false, false, false },
+    &input_arguments
+  );
+  ERROR_CHECK(false);
+
+  // Get agruments
+  uint32_t task_id = GetNumber();
+  ERROR_CHECK(task_id >= taskzero.task_list.size());
+
+  // Leftover check & Execute main job
+  LEFTOVER_CHECK;
+  MarkTask(task_id, status);
+}
+
 
 #undef ERROR_CHECK
 #undef LEFTOVER_CHECK
@@ -261,15 +328,12 @@ static void CommandHandle() {
     { CommandAdd(); }
   else if (taskzero.command == "update")
     { CommandUpdate(); }
-  else if (taskzero.command == "delete") {
-    std::cout << "Delete a task.\n";
-  }
-  else if (taskzero.command == "mark-in-progress") {
-    std::cout << "Mark task as in progress.\n";
-  }
-  else if (taskzero.command == "mark-done") {
-    std::cout << "Mark task as done.\n";
-  }
+  else if (taskzero.command == "delete")
+    { CommandDelete(); }
+  else if (taskzero.command == "mark-in-progress")
+    { CommandMark(TASK_IN_PROGRESS); }
+  else if (taskzero.command == "mark-done")
+    { CommandMark(TASK_DONE); }
   else if (taskzero.command == "quit")
     { taskzero.flags.done = true; }
   else {

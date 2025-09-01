@@ -62,6 +62,7 @@ typedef struct {
 
 typedef struct {
   std::string command{};
+  std::string error_message{};
   std::vector<Task> task_list{};
   CommandFlags flags{};
 } TaskZero;
