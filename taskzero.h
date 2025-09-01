@@ -9,7 +9,8 @@
 #include <fstream>
 #include <limits>
 
-#define WORKLIST_FILE "./worklist.bin"
+#define WORKLIST_FILE   "./worklist.bin"
+#define TASK_NAME_LIMIT 25
 
 typedef char byte;
 
@@ -30,7 +31,7 @@ typedef enum {
 } TaskPriority;
 
 typedef struct {
-  std::string task_name;
+  char task_name[TASK_NAME_LIMIT+1];
   TaskPriority priority;
   TaskStatus status;
 } Task;

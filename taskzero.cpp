@@ -198,8 +198,18 @@ static uint32_t GetNumber() {
 
 static void
 GetArguments(const InputArguments& input_arguments, Task* new_task) {
-  if (input_arguments.get_name)
-    { std::cin >> new_task->task_name; }
+  if (input_arguments.get_name) {
+    std::string task_name;
+    task_name = std::cin.peek();
+
+    if (task_name.length() > TASK_NAME_LIMIT) {
+      AnnounceError("Task name is too long!");
+      std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    } else {
+      std::cin >> new_task->task_name;
+    }
+  }
+
   if (input_arguments.get_deadline)
     { /* TODO: Will add after finish date calculator */ }
   if (input_arguments.get_consequence)
