@@ -3,6 +3,9 @@
 
 TaskZero taskzero;
 
+static void LoadFile();
+static void SaveFile();
+
 static void PrintError();
 static void PrintTasks();
 static void Reset();
@@ -10,6 +13,8 @@ static void Reset();
 static void CommandHandle();
 
 int main() {
+  LoadFile();
+
   while (!taskzero.flags.done) {
     Reset();
     PrintTasks();
@@ -17,6 +22,8 @@ int main() {
       { PrintError(); }
     CommandHandle();
   }
+
+  SaveFile();
 
   return 0;
 }
@@ -83,7 +90,7 @@ static inline void MarkTask(const uint32_t &task_id, const TaskStatus &status) {
 
 
 
-////////////////////  LOAD FILE  ////////////////////
+////////////////////  FILE  ////////////////////
 static void LoadFile() {
   std::ifstream in(WORKLIST_FILE, std::ios::binary);
 
@@ -99,6 +106,15 @@ static void LoadFile() {
   }
 
   in.close();
+}
+
+static void SaveFile() {
+  std::ofstream out(WORKLIST_FILE, std::ios::binary);
+
+  for (Task task : taskzero.task_list)
+    { out.write((byte*)&task, sizeof(Task)); }
+
+  out.close();
 }
 
 
