@@ -9,14 +9,11 @@ typedef long double ld;
 // Predicates
 #define success            0 ==
 #define failure            0 !=
-#define fail               0 !=
 #define even               0 == 1 &
 #define odd                1 == 1 &
 #define positive           0 <
 #define negative           0 >
 #define zero               0 ==
-#define empty              NULL ==
-#define null               NULL ==
 
 // Ternaries and conditionals.
 #define ifnot(...)   if(!(__VA_ARGS__))
@@ -24,17 +21,13 @@ typedef long double ld;
 #define elifnot(...) else if(!(__VA_ARGS__))
 #define when
 #define then        ?
-#define other       :
 #define otherwise   :
-#define otherwhen   :
 #define only        : NULL
 
 // Loops and blocks. Lisp, Lua, Ruby.
 #define until(...)   while(!(__VA_ARGS__))
 #define always       while(1)
 #define forever      while(1)
-#define loop         while(1)
-#define indefinitely while(1)
 #define never        while(0)
 #define comment      while(0)
 #define repeat       do

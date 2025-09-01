@@ -1,29 +1,17 @@
 #ifndef TASKZERO_H
 #define TASKZERO_H
 
-#include "./setup.h"
-#include <string.h>
-#include <vector.h>
 #include <iostream>
+#include <stdio.h>
 #include <stdint.h>
+#include <string.h>
+#include <vector>
+#include <fstream>
+#include <limits>
 
 #define WORKLIST_FILE "./worklist.bin"
 
-typedef byte char;
-
-
-
-////////////////////  TASKZERO  ////////////////////
-typedef struct {
-  bool hadError;
-  bool done;
-} CommandFlags;
-
-typedef struct {
-  std::string command;
-  std::vector<Task> task_list;
-  CommandFlags flags;
-} TaskZero;
+typedef char byte;
 
 
 
@@ -42,10 +30,9 @@ typedef enum {
 } TaskPriority;
 
 typedef struct {
-  uint32_t id;
   std::string task_name;
-  TaskStatus status;
   TaskPriority priority;
+  TaskStatus status;
 } Task;
 
 
@@ -57,5 +44,26 @@ typedef struct {
   bool no_deadline;
   bool no_consequence;
 } InputFlags;
+
+typedef struct {
+  bool get_id;
+  bool get_name;
+  bool get_deadline;
+  bool get_consequence;
+} InputArguments;
+
+
+
+////////////////////  TASKZERO  ////////////////////
+typedef struct {
+  bool hadError;
+  bool done;
+} CommandFlags;
+
+typedef struct {
+  std::string command{};
+  std::vector<Task> task_list{};
+  CommandFlags flags{};
+} TaskZero;
 
 #endif
