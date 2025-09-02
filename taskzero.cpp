@@ -1,5 +1,6 @@
 ////////////////////  MAIN  ////////////////////
 #include "./taskzero.h"
+#include "color.h"
 
 TaskZero taskzero;
 
@@ -41,26 +42,36 @@ static void PrintError() {
   taskzero.flags.hadError = false;
 }
 
-std::string status_string[] = {
-  [TASK_PENDING]     = "[Pending]",
-  [TASK_IN_PROGRESS] = "[In Progress]",
-  [TASK_DONE]        = "[Done]"
-};
-
 static void PrintTask(const int& task_id) {
-#define CHAR_LIMIT_TASK_NAME 15
-
   Task* curr_task = &taskzero.task_list.at(task_id);
-  printf("  %3i. ", task_id);
-  std::cout << curr_task->task_name << " "
-            << status_string[curr_task->status] << "\n";
 
-#undef CHAR_LIMIT_TASK_NAME
+  std::cout << "  ";
+  switch (curr_task->status) {
+    case TASK_PENDING:
+      std::cout << _COUT_COLOR_TEXT_BG("[Pending]", _WHITE_BG, _BLACK) << '\n';
+      break;
+
+    case TASK_IN_PROGRESS:
+      std::cout << _COUT_COLOR_TEXT_BG("[In Progress]", _YELLOW_BG, _BLACK) << '\n';
+      break;
+
+    case TASK_DONE:
+      std::cout << _COUT_COLOR_TEXT_BG("[Done]", _GREEN_BG, _BLACK) << '\n';
+      break;
+
+    default:
+      AnnounceError("Unknown task status!");
+      return;
+  }
+
+  printf("  %3i. %.*s\n", task_id+1, TASK_NAME_LIMIT, curr_task->task_name);
 }
 
 static void PrintTasks() {
   for (size_t task_id = 0; task_id < taskzero.task_list.size(); task_id++) {
     PrintTask(task_id);
+    if (taskzero.flags.hadError)
+      {return;}
   }
 }
 
@@ -177,7 +188,7 @@ GetFlags(const InputFlags& input_flags, InputArguments* input_arguments) {
   } while (!(*c == '\n' || *c == '\0'));
 }
 
-static uint32_t GetNumber() {
+static uint32_t GetNumber(uint32_t smallest_number) {
   std::string str_num;
   std::cin >> str_num;
 
@@ -189,11 +200,15 @@ static uint32_t GetNumber() {
   }
 
   int res = std::stoi(str_num);
-  if (res < 0) {
-    AnnounceError("Expect positive number!");
-    return 0;
-  }
-  return res;
+  if (res >= smallest_number)
+    { return res; }
+  
+  AnnounceError("Expect positive number!");
+  return 0;
+}
+
+static inline uint32_t GetId() {
+  return GetNumber(1) - 1;
 }
 
 static void
@@ -291,7 +306,7 @@ static void CommandUpdate() {
   ERROR_CHECK(false);
 
   // Get agruments
-  uint32_t task_id = GetNumber();
+  uint32_t task_id = GetId();
   ERROR_CHECK(task_id >= taskzero.task_list.size());
   Task changed_task;
   GetArguments(input_arguments, &changed_task);
@@ -312,7 +327,7 @@ static void CommandDelete() {
   ERROR_CHECK(false);
 
   // Get agruments
-  uint32_t task_id = GetNumber();
+  uint32_t task_id = GetId();
   ERROR_CHECK(task_id >= taskzero.task_list.size());
 
   // Leftover check & Execute main job
@@ -331,7 +346,7 @@ static void CommandMark(const TaskStatus status) {
   ERROR_CHECK(false);
 
   // Get agruments
-  uint32_t task_id = GetNumber();
+  uint32_t task_id = GetId();
   ERROR_CHECK(task_id >= taskzero.task_list.size());
 
   // Leftover check & Execute main job
