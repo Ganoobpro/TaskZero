@@ -34,6 +34,7 @@ int main() {
 ////////////////////  PRINT  ////////////////////
 static inline void AnnounceError(const std::string& error_message) {
   taskzero.error_message = error_message;
+  taskzero.flags.hadError = true;
 }
 
 static void PrintError() {
@@ -230,6 +231,19 @@ static inline uint32_t GetId() {
   return GetNumber(1, "Expect exist id number!") - 1;
 }
 
+static bool InvalidName() {
+  std::string task_name;
+  task_name = std::cin.peek();
+
+  if (task_name.length() > TASK_NAME_LIMIT) {
+    AnnounceError("Task name is too long!");
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    return true;
+  }
+
+  return false;
+}
+
 static bool WrongDateFormat(const std::string str_date) {
   // Format: DD-MM-YYYY
   if (str_date.length() > 10)
@@ -297,19 +311,6 @@ static void CalculateDate(Date& date) {
   date._date += date.date;
 }
 
-static bool InvalidName() {
-  std::string task_name;
-  task_name = std::cin.peek();
-
-  if (task_name.length() > TASK_NAME_LIMIT) {
-    AnnounceError("Task name is too long!");
-    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-    return true;
-  }
-
-  return false;
-}
-
 static Date GetDate() {
   Date date{};
   std::string str_date;
@@ -331,16 +332,23 @@ static Date GetDate() {
 static void
 GetArguments(const InputArguments& input_arguments, Task* new_task) {
   if (input_arguments.get_name) {
-    std::cout << "Please input task name: ";
-    if (InvalidName()) { return; }
+    if (std::cin.peek() == '\n' || std::cin.peek() == EOF) {
+      std::cout << "Task name: ";
+      if (InvalidName()) { return; }
+    }
+
     std::cin >> new_task->task_name;
-    std::cout << '\n';
   }
 
   if (input_arguments.get_deadline) {
-    std::cout << "Please input deadline: ";
+    if (std::cin.peek() == '\n' || std::cin.peek() == EOF)
+      { std::cout << "Deadline: "; }
+
     new_task->deadline = GetDate();
-    std::cout << '\n';
+
+    if (taskzero.flags.hadError)
+      { return; }
+
   } else
     { new_task->deadline.INF = true; }
 
@@ -382,16 +390,6 @@ static void CommandHelp() {
     { return; }
 }
 
-#define ERROR_CHECK(other_cond)                  \
-  if (taskzero.flags.hadError || (other_cond)) { \
-    RemoveLeftoverInput(false);                  \
-    return;                                      \
-  }
-#define LEFTOVER_CHECK         \
-  RemoveLeftoverInput(true);   \
-  if (taskzero.flags.hadError) \
-    { return; }
-
 static void CommandAdd() {
   // Get flags
   InputArguments input_arguments{};
@@ -400,16 +398,24 @@ static void CommandAdd() {
     { .no_name = true, .no_deadline = false, .no_consequence = false },
     &input_arguments
   );
-  ERROR_CHECK(false);
+  if (taskzero.flags.hadError) {
+    RemoveLeftoverInput(false);
+    return;
+  }
 
   // Get agruments
   Task new_task;
   GetArguments(input_arguments, &new_task);
-  ERROR_CHECK(false);
+  if (taskzero.flags.hadError) {
+    RemoveLeftoverInput(false);
+    return;
+  }
   new_task.status = TASK_PENDING;
 
   // Leftover check & Execute main job
-  LEFTOVER_CHECK;
+  RemoveLeftoverInput(true);
+  if (taskzero.flags.hadError)
+    { return; }
   AddTask(new_task);
 }
 
@@ -421,16 +427,24 @@ static void CommandUpdate() {
     { false, false, false },
     &input_arguments
   );
-  ERROR_CHECK(false);
+  if (taskzero.flags.hadError) {
+    RemoveLeftoverInput(false);
+    return;
+  }
 
   // Get agruments
   uint32_t task_id = GetId();
-  ERROR_CHECK(task_id >= taskzero.task_list.size());
+  if (taskzero.flags.hadError || task_id >= taskzero.task_list.size()) {
+    RemoveLeftoverInput(false);
+    return;
+  }
   Task changed_task;
   GetArguments(input_arguments, &changed_task);
 
   // Leftover check & Execute main job
-  LEFTOVER_CHECK;
+  RemoveLeftoverInput(true);
+  if (taskzero.flags.hadError)
+    { return; }
   ChangeTask(task_id, changed_task);
 }
 
@@ -442,14 +456,22 @@ static void CommandDelete() {
     { true, true, true },
     &input_arguments
   );
-  ERROR_CHECK(false);
+  if (taskzero.flags.hadError) {
+    RemoveLeftoverInput(false);
+    return;
+  }
 
   // Get agruments
   uint32_t task_id = GetId();
-  ERROR_CHECK(task_id >= taskzero.task_list.size());
+  if (taskzero.flags.hadError || task_id >= taskzero.task_list.size()) {
+    RemoveLeftoverInput(false);
+    return;
+  }
 
   // Leftover check & Execute main job
-  LEFTOVER_CHECK;
+  RemoveLeftoverInput(true);
+  if (taskzero.flags.hadError)
+    { return; }
   DeleteTask(task_id);
 }
 
@@ -461,19 +483,24 @@ static void CommandMark(const TaskStatus status) {
     { false, false, false },
     &input_arguments
   );
-  ERROR_CHECK(false);
+  if (taskzero.flags.hadError) {
+    RemoveLeftoverInput(false);
+    return;
+  }
 
   // Get agruments
   uint32_t task_id = GetId();
-  ERROR_CHECK(task_id >= taskzero.task_list.size());
+  if (taskzero.flags.hadError || task_id >= taskzero.task_list.size()) {
+    RemoveLeftoverInput(false);
+    return;
+  }
 
   // Leftover check & Execute main job
-  LEFTOVER_CHECK;
+  RemoveLeftoverInput(true);
+  if (taskzero.flags.hadError)
+    { return; }
   MarkTask(task_id, status);
 }
-
-#undef ERROR_CHECK
-#undef LEFTOVER_CHECK
 
 static void CommandHandle() {
   GetCommand();
