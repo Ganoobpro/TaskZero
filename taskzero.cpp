@@ -42,9 +42,7 @@ static void PrintError() {
   taskzero.flags.hadError = false;
 }
 
-static void PrintTask(const int& task_id) {
-  Task* curr_task = &taskzero.task_list.at(task_id);
-
+static void PrintStatus(const Task* curr_task) {
   std::cout << "  ";
   switch (curr_task->status) {
     case TASK_PENDING:
@@ -63,8 +61,26 @@ static void PrintTask(const int& task_id) {
       AnnounceError("Unknown task status!");
       return;
   }
+}
 
-  printf("  %3i. %.*s\n", task_id+1, TASK_NAME_LIMIT, curr_task->task_name);
+static void PrintDeadline(const Task* curr_task) {
+  if (curr_task->deadline.INF) {
+    printf("XX-XX-XXXX");
+    return;
+  }
+
+  printf("%i-%i-%i (%i) | ",
+    curr_task->deadline.date, curr_task->deadline.month,
+    curr_task->deadline.year, curr_task->deadline._date
+  );
+}
+
+static void PrintTask(const int& task_id) {
+  Task* curr_task = &taskzero.task_list.at(task_id);
+  PrintStatus(curr_task);
+  printf("  %3i. %.*s | ", task_id+1, TASK_NAME_LIMIT, curr_task->task_name);
+  PrintDeadline(curr_task);
+  printf("\n");
 }
 
 static void PrintTasks() {
@@ -157,12 +173,6 @@ GetFlags(const InputFlags& input_flags, InputArguments* input_arguments) {
 
   do {
     switch (*c++) {
-      case 'i':
-        if (input_flags.no_id)
-          { AnnounceError("Error flag!"); return; }
-        input_arguments->get_id = false;
-        break;
-
       case 'n':
         if (input_flags.no_name)
           { AnnounceError("Error flag!"); return; }
@@ -188,7 +198,8 @@ GetFlags(const InputFlags& input_flags, InputArguments* input_arguments) {
   } while (!(*c == '\n' || *c == '\0'));
 }
 
-static uint32_t GetNumber(uint32_t smallest_number) {
+static uint32_t GetNumber(uint32_t smallest_number,
+                          const std::string& error_message) {
   std::string str_num;
   std::cin >> str_num;
 
@@ -199,16 +210,101 @@ static uint32_t GetNumber(uint32_t smallest_number) {
     }
   }
 
-  int res = std::stoi(str_num);
+  uint32_t res = (uint32_t) std::stoi(str_num);
   if (res >= smallest_number)
     { return res; }
-  
-  AnnounceError("Expect positive number!");
+
+  AnnounceError(error_message);
   return 0;
 }
 
 static inline uint32_t GetId() {
-  return GetNumber(1) - 1;
+  return GetNumber(1, "Expect exist id number!") - 1;
+}
+
+static bool WrongDateFormat(const std::string str_date) {
+  // Format: DD-MM-YYYY
+  if (str_date.length() > 10)
+    { return true; }
+
+  uint8_t split_sign = 2;
+  for (size_t i = 0; i < str_date.length(); i++) {
+    char c = str_date[i];
+
+    if (c == '-' && split_sign > 0) {
+      if (i == str_date.length()-1 || str_date[i+1] == '-')
+        { return true; }
+
+      split_sign--;
+      continue;
+    }
+
+    if (c < '0' || c > '9')
+      { return true; }
+  }
+
+  return (split_sign > 0);
+}
+
+static void ConvertToDate(Date& date, const char* p_str_date) {
+  char* p_end{};
+  date.date  = (uint32_t) strtol(p_str_date, &p_end, 10);
+  p_str_date = p_end + 1;
+  date.month = (uint32_t) strtol(p_str_date, &p_end, 10);
+  p_str_date = p_end + 1;
+  date.year  = (uint32_t) strtol(p_str_date, &p_end, 10);
+}
+
+// NP: no print
+static bool InvalidDateNP(const Date& date) {
+  if (date.year < 2000) {
+    AnnounceError("Invalid year! Expect year over 2000.");
+    return true;
+  }
+
+  if (date.month < 1 || date.month > 12) {
+    AnnounceError("Invalid month!");
+    return true;
+  }
+
+  uint32_t month_days[] = { 0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+  if ((date.year & 3) == 0)
+    { month_days[2] = 29; }
+  if (date.date < 1 || date.date > month_days[date.month]) {
+    AnnounceError("Invalid date!");
+    return true;
+  }
+
+  return false;
+}
+
+uint32_t month_sum_days[] = { 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334 };
+static void CalculateDate(Date& date) {
+  date._date = (date.year - 2000) >> 2;
+  if (date.month >= 3 || (date.year & 3) > 0)
+    { date._date++; }
+
+  date._date += (date.year - 2000) * 365;
+  date._date += month_sum_days[date.month-1];
+  date._date += date.date;
+}
+
+static Date GetDate() {
+  Date date{};
+  std::string str_date;
+  std::cin >> str_date;
+
+  if (WrongDateFormat(str_date)) {
+    AnnounceError("Invalid date format!");
+    return date;
+  }
+
+  ConvertToDate(date, &str_date[0]);
+  if (InvalidDateNP(date))
+    { return date; }
+
+  CalculateDate(date);
+  return date;
 }
 
 static void
@@ -226,7 +322,10 @@ GetArguments(const InputArguments& input_arguments, Task* new_task) {
   }
 
   if (input_arguments.get_deadline)
-    { /* TODO: Will add after finish date calculator */ }
+    { new_task->deadline = GetDate(); }
+  else
+    { new_task->deadline.INF = true; }
+
   if (input_arguments.get_consequence)
     { /* TODO: Will add after finish priority calculator */ }
 }
@@ -280,7 +379,7 @@ static void CommandAdd() {
   InputArguments input_arguments = (InputArguments){true, true, true, true};
   input_arguments.get_id = true;
   GetFlags(
-    { .no_id = false, .no_name = false, .no_deadline = true, .no_consequence = true },
+    { .no_name = false, .no_deadline = true, .no_consequence = true },
     &input_arguments
   );
   ERROR_CHECK(false);
@@ -300,7 +399,7 @@ static void CommandUpdate() {
   // Get flags
   InputArguments input_arguments = (InputArguments){true, true, true, true};
   GetFlags(
-    { true, true, true, true },
+    { true, true, true },
     &input_arguments
   );
   ERROR_CHECK(false);
@@ -321,7 +420,7 @@ static void CommandDelete() {
   InputArguments input_arguments{};
   input_arguments.get_id = true;
   GetFlags(
-    { false, false, false, false },
+    { false, false, false },
     &input_arguments
   );
   ERROR_CHECK(false);
@@ -340,7 +439,7 @@ static void CommandMark(const TaskStatus status) {
   InputArguments input_arguments{};
   input_arguments.get_id = true;
   GetFlags(
-    { false, false, false, false },
+    { false, false, false },
     &input_arguments
   );
   ERROR_CHECK(false);

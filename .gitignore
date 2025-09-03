@@ -1,2 +1,3 @@
 *.exe
 ./worklist.bin
+./test.cpp

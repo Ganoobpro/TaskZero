@@ -11,7 +11,7 @@ TaskZero is a to-do-list app in terminal, created by a guy who love using termin
 ```bash
 [arguments]: [name] [deadline] [consequence]
 # name limit : 20 chars
-# deadline   : YY/MM/DD
+# deadline   : DD/MM/YY
 # consequence: 0 -> 10
 ```
 

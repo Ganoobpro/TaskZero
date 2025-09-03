@@ -16,6 +16,18 @@ typedef char byte;
 
 
 
+////////////////////  TIME MANAGEMENT  ////////////////////
+typedef struct {
+  uint32_t date;
+  uint32_t month;
+  uint32_t year;
+  uint32_t _date;
+
+  bool INF;
+} Date;
+
+
+
 ////////////////////  TASK  ////////////////////
 typedef enum {
   TASK_PENDING,
@@ -32,6 +44,7 @@ typedef enum {
 
 typedef struct {
   char task_name[TASK_NAME_LIMIT+1];
+  Date deadline;
   TaskPriority priority;
   TaskStatus status;
 } Task;
@@ -40,7 +53,6 @@ typedef struct {
 
 ////////////////////  COMMAND HANDLE  ////////////////////
 typedef struct {
-  bool no_id;
   bool no_name;
   bool no_deadline;
   bool no_consequence;
