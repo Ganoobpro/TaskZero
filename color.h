@@ -29,11 +29,19 @@
 
 
 
-#define _COUT_COLOR(message, TEXT_COLOR) \
-  START_COUT_COLOR TEXT_COLOR "m" message BACK_TO_NORMAL
+#define _ADD_COLOR(_message, TEXT_COLOR) \
+  START_COUT_COLOR TEXT_COLOR "m" _message BACK_TO_NORMAL
 
-#define _COUT_COLOR_TEXT_BG(message, BG_COLOR, TEXT_COLOR) \
-  START_COUT_COLOR BG_COLOR ";" TEXT_COLOR "m" message BACK_TO_NORMAL
+#define _ADD_COLOR_TEXT_BG(_message, BG_COLOR, TEXT_COLOR) \
+  START_COUT_COLOR BG_COLOR ";" TEXT_COLOR "m" _message BACK_TO_NORMAL
+
+#define COUT_RAINBOW(_message, _length) \
+  do { \
+    for (size_t _message_index = 0; _message_index < _length; _message_index++) { \
+      std::cout << "\033[3" << ((_message_index % 7) + 1) << "m" << _message[_message_index]; \
+    } \
+    std::cout << BACK_TO_NORMAL; \
+  } while (0)
 
 
 

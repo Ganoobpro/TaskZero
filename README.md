@@ -19,9 +19,9 @@ TaskZero is a to-do-list app in terminal, created by a guy who love using termin
 
 ```bash
 [flags]: -n, -d, -c
-# -n: exclude name (use for update if you don't want to change name)
-# -d: set deadline    = NaH
-# -c: set consequence = 0
+# -n: input name (use for update if you want to change name)
+# -d: input deadline
+# -c: input consequence
 ```
 
  - 📟 Commands:

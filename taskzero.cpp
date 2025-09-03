@@ -46,15 +46,15 @@ static void PrintStatus(const Task* curr_task) {
   std::cout << "  ";
   switch (curr_task->status) {
     case TASK_PENDING:
-      std::cout << _COUT_COLOR_TEXT_BG("[Pending]", _WHITE_BG, _BLACK) << '\n';
+      std::cout << _ADD_COLOR_TEXT_BG("[Pending]", _WHITE_BG, _BLACK) << '\n';
       break;
 
     case TASK_IN_PROGRESS:
-      std::cout << _COUT_COLOR_TEXT_BG("[In Progress]", _YELLOW_BG, _BLACK) << '\n';
+      std::cout << _ADD_COLOR_TEXT_BG("[In Progress]", _YELLOW_BG, _BLACK) << '\n';
       break;
 
     case TASK_DONE:
-      std::cout << _COUT_COLOR_TEXT_BG("[Done]", _GREEN_BG, _BLACK) << '\n';
+      std::cout << _ADD_COLOR_TEXT_BG("[Done]", _GREEN_BG, _BLACK) << '\n';
       break;
 
     default:
@@ -78,7 +78,12 @@ static void PrintDeadline(const Task* curr_task) {
 static void PrintTask(const int& task_id) {
   Task* curr_task = &taskzero.task_list.at(task_id);
   PrintStatus(curr_task);
-  printf("  %3i. %.*s | ", task_id+1, TASK_NAME_LIMIT, curr_task->task_name);
+  printf("  %3i. ", task_id+1);
+
+  std::string task_name = curr_task->task_name;
+  COUT_RAINBOW(task_name, task_name.length());
+  std::cout << " | ";
+
   PrintDeadline(curr_task);
   printf("\n");
 }
@@ -163,11 +168,14 @@ static void RemoveLeftoverInput(bool print_error) {
 
 static void
 GetFlags(const InputFlags& input_flags, InputArguments* input_arguments) {
-  std::string flags;
-  flags = std::cin.peek();
-  if (flags[0] != '-')
+  // Skip white space
+  while (std::cin.peek() == ' ')
+    { std::cin.ignore(); }
+
+  if (std::cin.peek() != '-')
     { return; }
 
+  std::string flags;
   std::cin >> flags;
   char* c = &flags.at(1);
 
@@ -176,19 +184,19 @@ GetFlags(const InputFlags& input_flags, InputArguments* input_arguments) {
       case 'n':
         if (input_flags.no_name)
           { AnnounceError("Error flag!"); return; }
-        input_arguments->get_name = false;
+        input_arguments->get_name = true;
         break;
 
       case 'd':
         if (input_flags.no_deadline)
           { AnnounceError("Error flag!"); return; }
-        input_arguments->get_deadline = false;
+        input_arguments->get_deadline = true;
         break;
 
       case 'c':
         if (input_flags.no_consequence)
           { AnnounceError("Error flag!"); return; }
-        input_arguments->get_consequence = false;
+        input_arguments->get_consequence = true;
         break;
 
       default:
@@ -289,6 +297,19 @@ static void CalculateDate(Date& date) {
   date._date += date.date;
 }
 
+static bool InvalidName() {
+  std::string task_name;
+  task_name = std::cin.peek();
+
+  if (task_name.length() > TASK_NAME_LIMIT) {
+    AnnounceError("Task name is too long!");
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    return true;
+  }
+
+  return false;
+}
+
 static Date GetDate() {
   Date date{};
   std::string str_date;
@@ -310,20 +331,17 @@ static Date GetDate() {
 static void
 GetArguments(const InputArguments& input_arguments, Task* new_task) {
   if (input_arguments.get_name) {
-    std::string task_name;
-    task_name = std::cin.peek();
-
-    if (task_name.length() > TASK_NAME_LIMIT) {
-      AnnounceError("Task name is too long!");
-      std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-    } else {
-      std::cin >> new_task->task_name;
-    }
+    std::cout << "Please input task name: ";
+    if (InvalidName()) { return; }
+    std::cin >> new_task->task_name;
+    std::cout << '\n';
   }
 
-  if (input_arguments.get_deadline)
-    { new_task->deadline = GetDate(); }
-  else
+  if (input_arguments.get_deadline) {
+    std::cout << "Please input deadline: ";
+    new_task->deadline = GetDate();
+    std::cout << '\n';
+  } else
     { new_task->deadline.INF = true; }
 
   if (input_arguments.get_consequence)
@@ -376,10 +394,10 @@ static void CommandHelp() {
 
 static void CommandAdd() {
   // Get flags
-  InputArguments input_arguments = (InputArguments){true, true, true, true};
-  input_arguments.get_id = true;
+  InputArguments input_arguments{};
+  input_arguments.get_name = true;
   GetFlags(
-    { .no_name = false, .no_deadline = true, .no_consequence = true },
+    { .no_name = true, .no_deadline = false, .no_consequence = false },
     &input_arguments
   );
   ERROR_CHECK(false);
@@ -397,9 +415,10 @@ static void CommandAdd() {
 
 static void CommandUpdate() {
   // Get flags
-  InputArguments input_arguments = (InputArguments){true, true, true, true};
+  InputArguments input_arguments{};
+  input_arguments.get_id = true;
   GetFlags(
-    { true, true, true },
+    { false, false, false },
     &input_arguments
   );
   ERROR_CHECK(false);
@@ -420,7 +439,7 @@ static void CommandDelete() {
   InputArguments input_arguments{};
   input_arguments.get_id = true;
   GetFlags(
-    { false, false, false },
+    { true, true, true },
     &input_arguments
   );
   ERROR_CHECK(false);
@@ -452,7 +471,6 @@ static void CommandMark(const TaskStatus status) {
   LEFTOVER_CHECK;
   MarkTask(task_id, status);
 }
-
 
 #undef ERROR_CHECK
 #undef LEFTOVER_CHECK
